@@ -1,0 +1,11 @@
+RewriteEngine On
+RewriteBase /api_proyecto/public/
+
+# Si el archivo existe, no reescribir
+RewriteCond %{REQUEST_FILENAME} !-f
+
+# Si la carpeta existe, no reescribir
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Todo lo demás va a index.php
+RewriteRule ^ index.php [QSA,L]
