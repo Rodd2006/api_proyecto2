@@ -1,110 +1,74 @@
 <?php
-/**
- * Controlador de usuarios
- */
 
-// Importa el modelo User, encargado de manejar registros, logins y búsquedas.
+// ===========================================
+// CORS PARA ANGULAR
+// ===========================================
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// ===========================================
+// IMPORTS
+// ===========================================
 require_once __DIR__ . '/../models/User.php';
-
-// Importa la clase Response, utilizada para enviar respuestas JSON consistentes al frontend.
 require_once __DIR__ . '/../utils/Response.php';
 
-// Controlador encargado de manejar peticiones relacionadas a usuarios:
-// - Registro
-// - Login
-// - Listado (solo administradores)
+// ===========================================
+// CONTROLADOR
+// ===========================================
 class UserController {
 
-    // Instancia del modelo User.
     private $model;
 
-    // Constructor: inicializa el modelo User para ser usado por los métodos del controlador.
     public function __construct() {
         $this->model = new User();
     }
 
-    // -----------------------------------------------------
-    // POST /users/register
-    // Método encargado de registrar un nuevo usuario.
-    // -----------------------------------------------------
-    public function register($data) {
+    // ------------------------------------------
+    // REGISTRO 
+    // ------------------------------------------
+    public function register($body) {
 
-        // Valida que los campos obligatorios estén presentes.
-        // Si falta alguno, se retorna error 400 (Bad Request).
-        if (empty($data['nombre']) || empty($data['email']) || empty($data['password'])) {
-            Response::json(['mensaje' => 'Faltan datos obligatorios'], 400);
-            return;
+        if (!isset($body['nombre'], $body['email'], $body['password'])) {
+            return Response::json(["error" => "Faltan datos"], 400);
         }
 
-        // Si no se envía rol explícitamente, se asigna "cliente" por defecto.
-        $rol = $data['rol'] ?? 'cliente';
+        $result = $this->model->register(
+            $body['nombre'],
+            $body['email'],
+            $body['password']
+        );
 
-        // Intenta registrar al usuario utilizando el modelo.
-        // El modelo devuelve el ID nuevo o un array con error si el email ya existe.
-        $res = $this->model->register($data['nombre'], $data['email'], $data['password'], $rol);
-
-        // Si el modelo devuelve un array con clave "error" indicando email duplicado,
-        // se responde con código 409 (Conflict).
-        if (is_array($res) && isset($res['error']) && $res['error'] === 'email_exists') {
-            Response::json(['mensaje' => 'Email ya registrado'], 409);
-            return;
+        if ($result === ['error' => 'email_exists']) {
+            return Response::json(["error" => "email_exists"], 409);
         }
 
-        // Si el registro fue exitoso, $res contendrá true o un ID.
-        // Se envía código 201 (Created) en ese caso, o 500 si algo falló internamente.
-        Response::json(['success' => (bool)$res], $res ? 201 : 500);
+        return Response::json(["success" => true], 201);
     }
 
-    // -----------------------------------------------------
-    // POST /users/login
-    // Autentica un usuario y devuelve token + datos básicos.
-    // -----------------------------------------------------
-    public function login($data) {
+    // ------------------------------------------
+    // LOGIN
+    // ------------------------------------------
+    public function login($body) {
 
-        // Valida que email y password se hayan enviado.
-        if (empty($data['email']) || empty($data['password'])) {
-            Response::json(['mensaje' => 'Faltan credenciales'], 400);
-            return;
+        if (!isset($body['email'], $body['password'])) {
+            return Response::json(["error" => "Faltan datos"], 400);
         }
 
-        // Llama al modelo para validar usuario y contraseña.
-        // El modelo devuelve el usuario completo si es correcto, o false si falla.
-        $user = $this->model->login($data['email'], $data['password']);
+        $user = $this->model->login(
+            $body['email'],
+            $body['password']
+        );
 
-        // Si no coincide email/contraseña, se devuelve error 401 (No autenticado).
         if (!$user) {
-            Response::json(['mensaje' => 'Credenciales incorrectas'], 401);
-            return;
+            return Response::json(["error" => "Credenciales inválidas"], 401);
         }
 
-        // Si las credenciales son correctas, devuelve:
-        // - token para autorización futura
-        // - datos del usuario (id, nombre, email, rol)
-        Response::json([
-            'token' => $user['token'],
-            'usuario' => [
-                'id' => $user['id'],
-                'nombre' => $user['nombre'],
-                'email' => $user['email'],
-                'rol' => $user['rol']
-            ]
-        ]);
-    }
-
-    // -----------------------------------------------------
-    // GET /users
-    // Permite listar todos los usuarios, pero solo si el usuario autenticado es admin.
-    // -----------------------------------------------------
-    public function getAll($authUser) {
-
-        // Verifica si el usuario autenticado existe y si su rol es "admin".
-        if (!$authUser || $authUser['rol'] !== 'admin') {
-            Response::json(['mensaje' => 'No autorizado'], 403);
-            return;
-        }
-
-        // Si es administrador, llama al modelo y devuelve todos los usuarios.
-        Response::json($this->model->getAll());
+        return Response::json($user, 200);
     }
 }
-?>

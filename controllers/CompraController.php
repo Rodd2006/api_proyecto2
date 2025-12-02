@@ -16,7 +16,7 @@ require_once __DIR__ . '/../models/Ticket.php';
 require_once __DIR__ . '/../utils/Response.php';
 
 // Librería externa FPDF para crear PDFs.
-require_once __DIR__ . '/../libs/fpdf/fpdf.php';
+require_once __DIR__ . '/../libs/fpdf/fpdf/fpdf.php';
 
 // Controlador encargado de finalizar compras, generar tickets y vaciar el carrito.
 class CompraController {
