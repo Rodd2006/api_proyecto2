@@ -56,6 +56,9 @@ class UserController {
     // ------------------------------------------
     public function login($body) {
 
+         error_log("LOGIN BODY: " . json_encode($body));
+
+
         if (!isset($body['email'], $body['password'])) {
             return Response::json(["error" => "Faltan datos"], 400);
         }

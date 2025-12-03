@@ -40,33 +40,49 @@ class User {
     // ------------------------------------------
     // LOGIN
     // ------------------------------------------
-    public function login($email, $password) {
+   public function login($email, $password) {
 
-        $query = "SELECT * FROM usuarios WHERE email = ?";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute([$email]);
+    error_log("LOGIN DEBUG:");
+    error_log("Email recibido: " . $email);
+    error_log("Password recibido: " . $password);
 
-        if ($stmt->rowCount() == 0) {
-            return false;
-        }
+    $query = "SELECT * FROM usuarios WHERE Email = ?"; 
+    $stmt = $this->conn->prepare($query);
+    $stmt->execute([$email]);
 
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    error_log("Rowcount: " . $stmt->rowCount());
 
-        if (!password_verify($password, $user['password'])) {
-            return false;
-        }
-
-        // token simple (reemplazar por JWT si querés)
-        $token = bin2hex(random_bytes(32));
-
-        return [
-            'id' => $user['id'],
-            'nombre' => $user['nombre'],
-            'email' => $user['email'],
-            'rol' => $user['rol'],
-            'token' => $token
-        ];
+    if ($stmt->rowCount() == 0) {
+        error_log("NO EXISTE EL USUARIO");
+        return false;
     }
+
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    error_log("User encontrado: " . json_encode($user));
+
+    $hash = $user['password'];
+    error_log("HASH EN BD: " . $hash);
+
+    if (!password_verify($password, $hash)) {
+        error_log("PASSWORD_VERIFY FALLÓ");
+        return false;
+    }
+
+    error_log("LOGIN CORRECTO!!");
+
+    $token = bin2hex(random_bytes(32));
+
+   return [
+    'id' => $user['id'],
+    'nombre' => $user['nombre'],
+    'email' => $user['email'],   // ← FIX
+    'rol' => $user['rol'],
+    'token' => $token
+];
+
+}
+
+
 
     // ------------------------------------------
     // LISTAR USUARIOS (solo admin)
