@@ -25,21 +25,16 @@ class Ticket {
      * Inserta un nuevo registro en la tabla "tickets"
      * asignando la compra, el número del ticket y la ruta física del PDF.
      */
-    public function crear($idCompra, $numeroTicket, $pdfRuta) {
+   public function crear($idCompra, $numeroTicket, $pdfRuta) {
 
-        // Consulta SQL para insertar un ticket.
-        $sql = "INSERT INTO tickets (id_compra, numero_ticket, pdf_ruta)
-                VALUES (?, ?, ?)";
+    $sql = "INSERT INTO tickets (id_compra, numero_ticket, pdf_path)
+            VALUES (?, ?, ?)";
 
-        // Prepara la consulta para evitar inyección SQL.
-        $stmt = $this->conn->prepare($sql);
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([$idCompra, $numeroTicket, $pdfRuta]);
 
-        // Ejecuta el INSERT con los parámetros enviados.
-        $stmt->execute([$idCompra, $numeroTicket, $pdfRuta]);
-
-        // Devuelve el ID autoincremental asignado al ticket.
-        return $this->conn->lastInsertId();
-    }
+    return $this->conn->lastInsertId();
+}
 
     /** 
      * OBTENER POR COMPRA

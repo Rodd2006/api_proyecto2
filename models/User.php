@@ -1,95 +1,117 @@
 <?php
-require_once __DIR__ . '/../config/Database.php';
+// Importa el modelo base, que contiene la conexión PDO ($this->db)
+// y métodos comunes disponibles para todos los modelos.
+require_once __DIR__ . '/../core/Model.php';
 
-class User {
+// Modelo User: maneja registro, login, validación por token y listado de usuarios.
+// Se encarga completamente de la autenticación y almacenamiento de usuarios.
+class User extends Model {
 
-    private $conn;
+    // --------------------------------------------------------------
+    // REGISTRAR NUEVO USUARIO
+    // --------------------------------------------------------------
+    public function register($nombre, $email, $password, $rol = 'cliente') {
 
-    public function __construct() {
-    $db = new Database();
-    $this->conn = $db->getConnection();
-}
-
-
-    // ------------------------------------------
-    // REGISTRO DE USUARIOS
-    // ------------------------------------------
-    public function register($nombre, $email, $password, $rol = "cliente") {
-
-        // 1. Verificar si el email ya existe
-        $query = "SELECT id FROM usuarios WHERE email = ?";
-        $stmt = $this->conn->prepare($query);
+        // Verifica si ya existe un usuario con ese email.
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
 
-        if ($stmt->rowCount() > 0) {
+        // Si ya existe, devuelve un mensaje estándar que el controlador traducirá.
+        if ($stmt->fetch()) {
             return ['error' => 'email_exists'];
         }
 
-        // 2. Hashear contraseña
-        $passwordHashed = password_hash($password, PASSWORD_DEFAULT);
+        // Crea un hash seguro de la contraseña usando bcrypt
+        // (PASSWORD_DEFAULT siempre usa el algoritmo recomendado por PHP).
+        $hash = password_hash($password, PASSWORD_DEFAULT);
 
-        // 3. Insertar usuario
-        $query = "INSERT INTO usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)";
-        $stmt = $this->conn->prepare($query);
+        // Inserta el nuevo usuario con su contraseña hasheada.
+        $stmt = $this->db->prepare("
+            INSERT INTO users (nombre, email, password, rol) 
+            VALUES (?, ?, ?, ?)
+        ");
 
-        $ok = $stmt->execute([$nombre, $email, $passwordHashed, $rol]);
+        // Ejecuta la inserción.
+        $ok = $stmt->execute([$nombre, $email, $hash, $rol]);
 
+        // Devuelve true/false indicando éxito o fallo.
         return $ok;
     }
 
-    // ------------------------------------------
-    // LOGIN
-    // ------------------------------------------
-   public function login($email, $password) {
+    // --------------------------------------------------------------
+    // LOGIN CON VERIFICACIÓN Y GENERACIÓN DE TOKEN
+    // --------------------------------------------------------------
+    public function login($email, $password) {
 
-    error_log("LOGIN DEBUG:");
-    error_log("Email recibido: " . $email);
-    error_log("Password recibido: " . $password);
+        // Busca el usuario por email, incluyendo el hash para validar contraseña.
+        $stmt = $this->db->prepare("
+            SELECT id, nombre, email, password, rol 
+            FROM users 
+            WHERE email = ?
+        ");
+        $stmt->execute([$email]);
 
-    $query = "SELECT * FROM usuarios WHERE Email = ?"; 
-    $stmt = $this->conn->prepare($query);
-    $stmt->execute([$email]);
+        // Obtiene la fila como array asociativo.
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    error_log("Rowcount: " . $stmt->rowCount());
+        // Si no existe o la contraseña no coincide con el hash almacenado, falla.
+        if (!$user || !password_verify($password, $user['password'])) {
+            return false;
+        }
 
-    if ($stmt->rowCount() == 0) {
-        error_log("NO EXISTE EL USUARIO");
-        return false;
+        // Genera un token seguro para la sesión del usuario.
+        // random_bytes genera bytes criptográficamente seguros.
+        $token = bin2hex(random_bytes(16));
+
+        // Guarda el token en la base de datos asociado a ese usuario.
+        $update = $this->db->prepare("
+            UPDATE users 
+            SET token = ? 
+            WHERE id = ?
+        ");
+        $update->execute([$token, $user['id']]);
+
+        // Elimina la contraseña del array por seguridad.
+        unset($user['password']);
+
+        // Añade el token para devolverlo al controlador.
+        $user['token'] = $token;
+
+        return $user;
     }
 
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    error_log("User encontrado: " . json_encode($user));
+        // --------------------------------------------------------------
+        // BUSCAR USUARIO POR TOKEN
+        // --------------------------------------------------------------
+        public function findByToken($token) {
 
-    $hash = $user['password'];
-    error_log("HASH EN BD: " . $hash);
+            // Si no se envía token, responde inmediatamente con false.
+            if (!$token) return false;
 
-    if (!password_verify($password, $hash)) {
-        error_log("PASSWORD_VERIFY FALLÓ");
-        return false;
-    }
+            // Busca al usuario cuyo token coincida.
+            $stmt = $this->db->prepare("
+                SELECT id, nombre, email, rol 
+                FROM users 
+                WHERE token = ?
+            ");
+            $stmt->execute([$token]);
 
-    error_log("LOGIN CORRECTO!!");
+            // Devuelve sus datos básicos o false si no existe.
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        }
 
-    $token = bin2hex(random_bytes(32));
-
-   return [
-    'id' => $user['id'],
-    'nombre' => $user['nombre'],
-    'email' => $user['email'],   // ← FIX
-    'rol' => $user['rol'],
-    'token' => $token
-];
-
-}
-
-
-
-    // ------------------------------------------
-    // LISTAR USUARIOS (solo admin)
-    // ------------------------------------------
+    // --------------------------------------------------------------
+    // LISTAR TODOS LOS USUARIOS (solo administradores)
+    // --------------------------------------------------------------
     public function getAll() {
-        $query = "SELECT id, nombre, email, rol FROM usuarios";
-        $stmt = $this->conn->query($query);
+
+        // SELECT directo, ya que no se envían parámetros externos.
+        $stmt = $this->db->query("
+            SELECT id, nombre, email, rol 
+            FROM users
+        ");
+
+        // Devuelve todos los usuarios registrados.
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

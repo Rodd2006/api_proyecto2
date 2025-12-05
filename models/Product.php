@@ -2,6 +2,7 @@
 // Importa el modelo base que contiene la conexión PDO e infraestructura común
 // disponible para todos los modelos de la aplicación.
 require_once __DIR__ . '/../core/Model.php';
+require_once __DIR__ . '/../config/database.php';
 
 // Modelo Product, encargado de interactuar con la tabla "products".
 // Permite leer, crear, actualizar y eliminar productos dentro del sistema.
