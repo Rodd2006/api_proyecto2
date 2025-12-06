@@ -26,7 +26,9 @@ header("Access-Control-Allow-Origin: $origin");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 
 // Cabeceras custom permitidas (incluye Authorization para tokens).
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
+// Cabeceras custom permitidas (incluye Authorization para tokens).
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin");
+
 
 // Permitimos envío de cookies / credenciales.
 header("Access-Control-Allow-Credentials: true");
