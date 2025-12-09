@@ -32,6 +32,7 @@ class Carrito extends Model {
     /* ================================
        AGREGAR PRODUCTO
     ================================= */
+    /* 
     public function agregar(int $idUsuario, int $idProducto, int $cantidad, float $precioUnit): bool {
 
         $carritoId = $this->asegurarCarritoAbierto($idUsuario);
@@ -76,6 +77,42 @@ class Carrito extends Model {
 
         return $ok;
     }
+ */
+    public function agregar(int $idUsuario, int $idProducto, int $cantidad, float $precioUnit): bool {
+
+        // Obtiene o crea el carrito del usuario.
+        $carritoId = $this->asegurarCarritoAbierto($idUsuario);
+
+        // Primero revisa si ya existe ese producto dentro del carrito.
+        $check = $this->db->prepare("
+            SELECT id_detalle_carrito, cantidad 
+            FROM detalles_carrito 
+            WHERE id_carrito = ? AND id_producto = ?
+        ");
+        $check->execute([$carritoId, $idProducto]);
+        $row = $check->fetch(PDO::FETCH_ASSOC);
+
+        // Si ya existe, se actualiza la cantidad sumando la nueva.
+        if ($row) {
+            $nueva = (int)$row['cantidad'] + $cantidad;
+
+            // Se actualiza cantidad y precio unitario.
+            $upd = $this->db->prepare("
+                UPDATE detalles_carrito 
+                SET cantidad = ?, precio_unitario = ? 
+                WHERE id_detalle_carrito = ?
+            ");
+            return $upd->execute([$nueva, $precioUnit, $row['id_detalle_carrito']]);
+        } 
+        
+        // Si no existe, se inserta una nueva fila.
+        $ins = $this->db->prepare("
+            INSERT INTO detalles_carrito (id_carrito, id_producto, cantidad, precio_unitario) 
+            VALUES (?, ?, ?, ?)
+        ");
+        return $ins->execute([$carritoId, $idProducto, $cantidad, $precioUnit]);
+    }
+
 
     /* ================================
        ACTUALIZAR CANTIDAD DIRECTO
